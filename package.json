@@ -1,0 +1,18 @@
+{
+  "name": "vzi",
+  "description": "pipe events into a browser and produce an interactive report",
+  "author": "Jared Flatow",
+  "license": "MPL-2.0",
+  "repository" : "jflatow/vzi",
+  "version": "0.1.0",
+  "bin": "bin/vzi",
+  "dependencies": {
+    "browserify": "latest",
+    "minimist": "latest",
+    "ws": "latest"
+  },
+  "optionalDependencies": {
+    "d3": "latest",
+    "sky": "jflatow/sky"
+  }
+}
