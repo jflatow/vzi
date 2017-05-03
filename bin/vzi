@@ -23,6 +23,10 @@ const stream = require('stream')
 const browserify = require('browserify')
 const WebSocket = require('ws')
 
+function array(x) {
+  return x instanceof Array ? x : (x == undefined ? [] : [x])
+}
+
 function usage(unknown) {
   return 'USAGE: vzi [-h] [-H] ([-c PIPE] | [PIPE.js]) ([-O] | [-o OUT]) [-p PORT]'
 }
@@ -50,18 +54,34 @@ async function gatherOpts(args) {
     args: args,
     headless: args.headless,
     keep_alive: args['keep-alive'],
-    format: args.format || 'unix',
+    define: await defineParams(args),
+    format: await determineFormat(args),
     output: await determineOutput(args),
     pipe: await determinePipe(args),
     http_agent: new http.Agent({keepAlive: true}),
     project_root: path.join(__dirname, '..'),
-    project_hash: Math.floor(Math.random() * 1e16),
+    new_page: args['page-token'] ? false : true,
+    page_token: args['page-token'] || Math.floor(Math.random() * 1e16),
     browser_path: args['browser-path'] || opts.chrome_bin || '',
-    browser_port: args['browser-port'] || 64000 - ~~(Math.random() * 1000),
-    launch_browser: args['browser-port'] ? false : true,
+    browser_port: args['browser-port'] || 9222,
     using_bindings: false,
-    window_size: args['window-size']
+    window_size: args['window-size'],
   })
+}
+
+async function defineParams(args) {
+  let defs = array(args.define).reduce((a, d) => a.concat(array(d)), [])
+  let define = {}
+  for (let def of defs) {
+    let [name, val] = def.split('=')
+    let num = parseFloat(val)
+    define[name] = isNaN(num) ? val : num;
+  }
+  return define;
+}
+
+async function determineFormat(args) {
+  return args.format || 'unix'
 }
 
 async function determineOutput(args) {
@@ -106,38 +126,140 @@ class Client {
   constructor(opts) {
     this.opts = opts;
     this.pending = []
+  }
 
+  get pageURL() {
+    const opts = this.opts;
+    return `file://${opts.project_root}/www/index.html#${opts.page_token}`
+  }
+
+  async init() {
+    await this.openBrowser()
+    await this.connectPage()
+  }
+
+  async openBrowser() {
+    const opts = this.opts;
     if (opts.using_bindings) // TODO: other programs could use this too
       return exit('Native bindings not yet implemented', 1)
-
-    if (opts.launch_browser)
-      this.browser = this.launchBrowser()
-    else
-      http.request({
-        path: `/json/new?${encodeURIComponent(this.url())}`,
-        port: opts.browser_port,
-        agent: opts.http_agent
-      }).on('error', (e) => {
-        console.error(`Failed to create new page: ${e}`)
-      }).end()
+    if (opts.new_page)
+      return this.browser = await this.launchBrowser()
+    // if its not a new page, we definitely shouldn't need to launch
+    return this.browser = null;
   }
 
-  url() {
-    const opts = this.opts;
-    return `file://${opts.project_root}/www/index.html#${opts.project_hash}`
-  }
-
-  launchBrowser() {
+  async launchBrowser() {
     // spawn an external browser process
     const opts = this.opts;
     const args = [
-      '--disable-gpu',
+      `--no-startup-window`,
       `--remote-debugging-port=${opts.browser_port}`
     ]
     if (opts.headless)
-      args.push('--headless')
-    args.push(this.url())
+      args.push('--headless', '--disable-gpu')
+    args.push(this.pageURL)
     return require('child_process').spawn(opts.browser_path, args, {detached: true})
+  }
+
+  async connectPage() {
+    const opts = this.opts;
+    const conf = JSON.stringify({
+      define: opts.define,
+      format: opts.format,
+      pipe: opts.pipe
+    })
+    return new Promise(
+      async (okay, fail) => {
+        try {
+          if (opts.new_page)
+            await this.newPage((page) => this.findPage([page]))
+          else
+            await this.listPages((pages) => this.findPage(pages))
+
+          const url = this.page.webSocketDebuggerUrl;
+          if (!url)
+            return fail(`Page has no available debugging socket`)
+
+          this.socket = new WebSocket(url)
+          this.socket.onopen = () => {
+            const bootstrap = () => {
+              okay(this.eval(`handle_init(${conf})`, (r) => {
+                this.report(r, false)
+              }))
+            }
+            if (opts.new_page) {
+              this.send({method: 'Page.enable'})
+              this.when({method: 'Page.loadEventFired'}, bootstrap)
+            } else { // assume its already loaded
+              bootstrap()
+            }
+          }
+          this.socket.onerror = (e) => console.error('socket error', e)
+          this.socket.onmessage = (m) => this.recv(m)
+        } catch (e) {
+          fail(e)
+        }
+      }
+    )
+  }
+
+  async listPages(...args) {
+    // NB: currently assumes remote browser
+    return this.getJSON(`/json/list`, ...args)
+  }
+
+  async newPage(...args) {
+    // NB: currently assumes remote browser
+    return this.getJSON(`/json/new?${encodeURIComponent(this.pageURL)}`, ...args)
+  }
+
+  async getJSON(path, success = () => true, retries = 10, delay = 200) {
+    const opts = this.opts, port = opts.browser_port;
+    return new Promise(
+      (okay, fail) => {
+        const attempt = () => {
+          if (retries-- < 1)
+            return fail(`Failed to get ${path}`)
+          http.request({
+            path: path,
+            port: port,
+            agent: opts.http_agent
+          }, (response) => {
+            let buf = ''
+            response.on('data', (d) => buf += d)
+            response.on('end', () => {
+              let obj = JSON.parse(buf)
+              if (!success(obj))
+                return setTimeout(attempt, delay)
+              okay(obj)
+            })
+          }).on('error', (e) => {
+            switch (e.code) {
+            case 'ECONNRESET':
+              return okay(null)
+            case 'ECONNREFUSED':
+              if (retries--)
+                return setTimeout(attempt, delay)
+              console.error(`Failed to talk to browser on ${port}: ${e}`)
+              break;
+            default:
+              console.error(`Unexpected request error on ${port}: ${e}`)
+              break;
+            }
+            fail(e)
+          }).end()
+        }
+        attempt()
+      }
+    )
+  }
+
+  findPage(pages) {
+    const hash = `#${this.opts.page_token}`
+    for (let page of pages)
+      if (url.parse(page.url).hash == hash)
+        return this.page = page;
+    return this.page = null;
   }
 
   report(result, final) {
@@ -148,64 +270,6 @@ class Client {
       fs.writeFileSync(opts.output, result.value)
     else if (final)
       opts.output.write(result.value)
-  }
-
-  find(pages) {
-    const hash = `#${this.opts.project_hash}`
-    for (let page of pages)
-      if (url.parse(page.url).hash == hash)
-        return page;
-  }
-
-  init() {
-    return new Promise((okay, fail) => {
-      const opts = this.opts;
-      let retries = 10, delay = 200;
-      const attempt = () => {
-        const req = http.request({
-          path: `/json/list`,
-          port: opts.browser_port,
-          agent: opts.http_agent
-        }, (response) => {
-          let buf = ''
-          response.on('data', (d) => buf += d)
-          response.on('end', () => {
-            const conf = JSON.stringify({
-              format: opts.format,
-              pipe: opts.pipe
-            })
-            const pages = JSON.parse(buf)
-            if (!(this.page = this.find(pages)))
-              return setTimeout(attempt, delay)
-            this.socket = new WebSocket(this.page.webSocketDebuggerUrl)
-            this.socket.onopen = () => {
-              this.send({method: 'Page.enable'})
-              this.when({method: 'Page.loadEventFired'}, () => {
-                okay(this.eval(`handle_init(${conf})`, (r) => this.report(r, false)))
-              })
-            }
-            this.socket.onerror = (e) => console.error('socket error', e)
-            this.socket.onmessage = (m) => this.recv(m)
-          })
-        }).on('error', (e) => {
-          switch (e.code) {
-          case 'ECONNRESET':
-            return okay(null)
-          case 'ECONNREFUSED':
-            if (retries--)
-              return setTimeout(attempt, delay)
-            console.error(`Failed to talk to browser on ${opts.browser_port}: ${e}`)
-            break;
-          default:
-            console.error(`Unexpected request error on ${opts.browser_port}: ${e}`)
-            break;
-          }
-          fail(e)
-        })
-        req.end()
-      }
-      attempt()
-    })
   }
 
   data(data) {
@@ -275,11 +339,13 @@ async function main() {
       'K': 'keep-alive',
       'b': 'browser-path',
       'c': 'cli',
+      'd': 'define',
       'f': 'format',
       'm': 'module',
       'O': 'no-output',
       'o': 'output',
       'p': 'browser-port',
+      'P': 'page-token',
       'w': 'window-size'
     },
     boolean: ['help', 'headless', 'keep-alive', 'no-output'],

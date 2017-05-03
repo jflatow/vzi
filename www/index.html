@@ -3,6 +3,11 @@
   <head>
     <title>vzi</title>
     <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+      }
+
       #report {
         width: 100vw;
         height: 100vh;
@@ -11,7 +16,10 @@
     </style>
   </head>
   <body>
-    <iframe id="report" srcdoc="<!DOCTYPE html>"></iframe>
-    <script src="index.js"></script>
+    <aside id="error"></aside>
+    <main>
+      <iframe id="report" srcdoc="<!DOCTYPE html>"></iframe>
+      <script src="index.js"></script>
+    </main>
   </body>
 </html>

@@ -1,8 +1,7 @@
 const Sky = require('sky')
-const pad = (s, w=8) => s.toString().padEnd(w)
 
 let head, body, main, label;
-let start = performance.now(), elapsed = 0, count = 0, rate;
+let start = performance.now(), elapsed = 0, rate;
 
 render_begin = (doc) => {
   head = Sky.$(doc.head)
@@ -21,9 +20,8 @@ render_begin = (doc) => {
   label = main.div()
 }
 
-render_event = (event, doc, opts) => {
-  count++;
+render_event = (event, doc, i) => {
   elapsed = (performance.now() - start) / 1000;
-  rate = count / elapsed;
-  label.txt(`${count} in ${elapsed.toFixed(2)}s = ${~~rate} / sec`)
+  rate = i / elapsed;
+  label.txt(`${i} in ${elapsed.toFixed(2)}s = ${~~rate} / sec`)
 }
