@@ -1,5 +1,5 @@
-let Conns = [], Conf = {}, Count = 0, Rate = 0, State = {}
-let Error = document.getElementById('error')
+let Conf = {}, State = {conns: [], count: 0}
+let ErrorReport = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
 
@@ -13,7 +13,7 @@ var render_lines = (data, doc, state) => {
   const lines = (state + data).split('\n')
   const final = lines.pop() // either empty (if complete) or leftover
   for (let event of lines)
-    render_event(event, doc, Count++)
+    render_event(event, doc, State.count++)
   return data.endsWith('\n') ? '' : final;
 }
 
@@ -33,7 +33,7 @@ function handle_init(conf) {
         let code = eval(conf.pipe[mode])
         render_begin(Report.contentDocument, conf)
       } catch (e) {
-        Error.innerText = `Error evaluating ${mode}: ${e}`
+        ErrorReport.innerText = `Error evaluating ${mode}: ${e}`
         console.error(e)
       }
   State.initialized = true;
@@ -51,17 +51,17 @@ function handle_data(enc) {
         break;
       }
     } catch (e) {
-      Error.innerText = `Error evaluating data: ${e}`
+      ErrorReport.innerText = `Error evaluating data: ${e}`
       console.error(e)
     }
-    Conns.map((conn) => conn.send(`handle_data("${enc}")`))
+    State.conns.map((conn) => conn.send(`handle_data("${enc}")`))
   }
   return report()
 }
 
 function handle_done() {
   if (State.initialized) { // NB: when streaming, make sure clients init first
-    Conns.map((conn) => conn.send(`handle_done()`))
+    State.conns.map((conn) => conn.send(`handle_done()`))
   }
   return report()
 }
@@ -83,19 +83,17 @@ function handle_done() {
         doc.getElementById('share').href = `${share}#host=${id}`
       })
       me.on('connection', (conn) => {
-        Conns.push(conn);
+        State.conns.push(conn);
         conn.on('open', () => {
           // other messages sent when they occur, but init can be missed
           // in general the handle_init function should be idempotent
           // since e.g. when reusing a page, it will be called again
-          // TODO: add send/recv catchup data callbacks in pipes
-          //       e.g. scatter would send canvas as image, recv and draw
           conn.send(`handle_init(${JSON.stringify(Conf)})`)
         })
         conn.on('close', () => {
-          let i = Conns.indexOf(conn)
+          let i = State.conns.indexOf(conn)
           if (i >= 0)
-            Conns.splice(i, 1)
+            State.conns.splice(i, 1)
         })
         conn.on('error', (e) => console.error(e))
       })
