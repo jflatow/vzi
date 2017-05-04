@@ -68,7 +68,7 @@ function handle_done() {
   return report()
 }
 
-((doc, api_key, share) => {
+((doc, api_key, share_url) => {
   let script = doc.createElement('script')
   script.type = 'text/javascript'
   script.async = true;
@@ -76,16 +76,21 @@ function handle_done() {
   script.onload = () => {
     let me = new Peer({key: api_key})
     let hash = doc.location.hash.substr(1)
+    let share = doc.getElementById('share')
+    let badge = () => {
+      let N = State.conns.length;
+      share.innerText = N  ? `share (${N})` : 'share'
+    }
     if (hash.startsWith('host=')) { // given host
       let host = hash.split('=')[1]
       let conn = me.connect(host, {reliable: true})
+      me.on('open', () => share.href = `${share_url}#host=${host}`)
       conn.on('data', (data) => eval(data))
     } else {                        // I am host
-      me.on('open', (id) => {
-        doc.getElementById('share').href = `${share}#host=${id}`
-      })
+      me.on('open', (id) => share.href = `${share_url}#host=${id}`)
       me.on('connection', (conn) => {
-        State.conns.push(conn);
+        State.conns.push(conn)
+        badge()
         conn.on('open', () => {
           // other messages sent when they occur, but init can be missed
           // in general the handle_init function should be idempotent
@@ -94,8 +99,10 @@ function handle_done() {
         })
         conn.on('close', () => {
           let i = State.conns.indexOf(conn)
-          if (i >= 0)
+          if (i >= 0) {
             State.conns.splice(i, 1)
+            badge()
+          }
         })
         conn.on('error', (e) => console.error(e))
       })

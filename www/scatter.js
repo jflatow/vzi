@@ -27,18 +27,14 @@ let yStr = vzi.maybeEvalFun(ys, (y) => y.toFixed(2))
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels;
 let bbox, cbox, pbox, vbox;
-let colors = [], cmap = {}
+let colorMap = new vzi.ColorMap()
 
 function color(c) {
-  if (!(c in cmap)) {
-    let rgb = Sky.rgb(...['r', 'g', 'b'].map(() => U.randInt(0, 255)), alpha)
-    cmap[c] = colors.push(rgb) - 1;
-
+  return colorMap.obtain(c, alpha, (rgb) => {
     let div = colorLabels.row(['1em', '1ex', 'fit'])
     div.nth(0).style({width: '1em', height: '1em', backgroundColor: new Sky.RGB(rgb).update({a: 1})})
     div.nth(2).attrs({class: 'label'}).txt(c)
-  }
-  return colors[cmap[c]]
+  })
 }
 
 function dot({x, y, c, r}) {
@@ -125,7 +121,7 @@ render_begin = (doc) => {
 
       '#colors, #xys': {
         'padding': '1ex 3ex',
-        'min-height': '1em',
+        'min-height': '2em',
         'background-color': 'rgba(255, 255, 255, .8)',
         'border': '1px solid #efefef',
         'border-radius': '4px'
