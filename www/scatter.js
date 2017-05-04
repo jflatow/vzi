@@ -2,6 +2,7 @@ const vzi = require('../lib/vzi')
 const Sky = require('sky')
 const Sun = require('sky/sun')
 const U = Sky.util, dfn = U.dfn, clip = U.clip;
+const tau = 2 * Math.PI;
 const {
   x: xp,
   y: yp,
@@ -176,7 +177,7 @@ render_event = (event, doc, i) => {
   }
   if (x < vbox.left || x > vbox.right || y < vbox.top || y > vbox.bottom) {
     console.log(`(${x}, ${y}) not in (${vbox})`)
-    resize(Sky.box(min(x, 0), min(y, 0), x, y))
+    resize(Sky.box(Math.min(x, 0), Math.min(y, 0), x, y))
   }
 
   dot({x, y, c, r})
