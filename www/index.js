@@ -3,6 +3,8 @@ let ErrorReport = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
 
+window.VZIState = State;
+
 /* This API can/should be overridden by user-defined functions.
  * It is often enough to simply overwrite `render_event`.
  */
@@ -54,14 +56,14 @@ function handle_data(enc) {
       ErrorReport.innerText = `Error evaluating data: ${e}`
       console.error(e)
     }
-    State.conns.map((conn) => conn.send(`handle_data("${enc}")`))
+    State.conns.map((conn) => conn.open && conn.send(`handle_data("${enc}")`))
   }
   return report()
 }
 
 function handle_done() {
   if (State.initialized) { // NB: when streaming, make sure clients init first
-    State.conns.map((conn) => conn.send(`handle_done()`))
+    State.conns.map((conn) => conn.open && conn.send(`handle_done()`))
   }
   return report()
 }
@@ -76,7 +78,7 @@ function handle_done() {
     let hash = doc.location.hash.substr(1)
     if (hash.startsWith('host=')) { // given host
       let host = hash.split('=')[1]
-      let conn = me.connect(host, {reliable: true, debug: true})
+      let conn = me.connect(host, {reliable: true})
       conn.on('data', (data) => eval(data))
     } else {                        // I am host
       me.on('open', (id) => {
