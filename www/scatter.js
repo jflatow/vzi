@@ -25,11 +25,11 @@ let indexOrEvalFun = (p, d) => {
 let xVal = indexOrEvalFun(xp, (parts, i) => dfn(parseFloat(parts[1]), i))
 let yVal = indexOrEvalFun(yp, (parts, i) => dfn(parseFloat(parts[0]), 0))
 let rVal = indexOrEvalFun(rp, (parts, i) => 8)
-let cVal = (parts, i) => parts[cp] || '-'
+let cVal = (parts, i) => parts[cp] || parts[2] || '-'
 
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels;
-let bbox, cbox, pbox, vbox = Sky.box()
+let bbox, cbox, pbox, vbox;
 let colors = [], cmap = {}
 
 function color(c) {
@@ -45,7 +45,7 @@ function color(c) {
 }
 
 function dot({x, y, c, r}) {
-  let {x: cx, y: cy} = toCanvas({x, y})
+  let {x: cx, y: cy} = dataToCanvas({x, y})
   ctx.fillStyle = color(c)
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, tau)
@@ -54,29 +54,49 @@ function dot({x, y, c, r}) {
 
 function resize(box = Sky.box()) {
   // copy the canvas to another one and then copy it back after resize, to keep a low-fi history
-  fctx.drawImage(canvas.node, 0, 0)
-  bbox = Sky.box(0, 0, canvas.node.clientWidth, canvas.node.clientHeight)
-  cbox = Sky.box(0, 0, canvas.node.width = bbox.w, canvas.node.height = bbox.h)
+  let real = canvas.node, fake = fctx.canvas;
+  let w = real.width, h = real.height, aspect = w / h;
+  let w_ = real.clientWidth, h_ = real.clientHeight;
+  if (w_ / aspect > h_)
+    h_ = (w_ / aspect)
+  else
+    w_ = (h_ * aspect)
+  let a = canvasToData({x: 0, y: 0}), b = canvasToData({x: w, y: h})
+
+  fctx.drawImage(real, 0, 0)
+  bbox = Sky.box(0, 0, w_, h_)
+  cbox = Sky.box(0, 0, real.width = w_, real.height = h_)
   pbox = cbox.trim(30, 24)
   vbox = vbox.join(box)
   ctx.setTransform(1, 0, 0, -1, 0, cbox.h)
-  ctx.drawImage(fctx.canvas, 0, 0)
-  fctx.canvas.width = bbox.w;
-  fctx.canvas.height = bbox.h;
+
+  let {x: ux, y: uy} = dataToCanvas(a)
+  let {x: uw, y: uh} = dataToCanvas(b)
+
+  ctx.drawImage(fake, ux, uy, uw, uh)
+  fake.width = w_;
+  fake.height = h_;
   fctx.setTransform(1, 0, 0, -1, 0, cbox.h)
 }
 
-function toCanvas({x, y}) {
+function dataToCanvas({x, y}) {
   return {
     x: pbox.x + pbox.w * (x - vbox.x) / vbox.w,
     y: pbox.y + pbox.h * (y - vbox.y) / vbox.h
   }
 }
 
-function toData({x, y}) {
+function canvasToData({x, y}) {
   return {
-    x: vbox.x + vbox.w * (x - cbox.x) / cbox.w,
-    y: vbox.y + vbox.h * (cbox.h - y - cbox.y) / cbox.h
+    x: vbox.x + vbox.w * (x - pbox.x) / pbox.w,
+    y: vbox.y + vbox.h * (y - pbox.y) / pbox.h
+  }
+}
+
+function dataToView({x, y}) {
+  return {
+    x: vbox.x + vbox.w * (x - pbox.x) / pbox.w,
+    y: vbox.y + vbox.h * (cbox.h - y - pbox.y) / pbox.h
   }
 }
 
@@ -90,6 +110,9 @@ render_begin = (doc) => {
   head = Sky.$(doc.head)
   head.unique('style', (head) => {
     return head.child('style').addRules({
+      '*': {
+        'box-sizing': 'border-box'
+      },
       'html, body, canvas': {
         'width': '100%',
         'height': '100%',
@@ -125,6 +148,10 @@ render_begin = (doc) => {
   labels = main.unique('#labels', (p) => p.row(['fit', '4px', 'fit']).attrs({id: 'labels'}))
   canvas = main.unique('#canvas', (p) => p.child('canvas', {id: 'canvas'}))
 
+  bbox = canvas.bbox()
+  cbox = canvas.bbox()
+  pbox = cbox.trim(30, 24)
+  vbox = Sky.box()
   ctx = canvas.node.getContext('2d')
   fctx = doc.createElement('canvas').getContext('2d')
   resize()
@@ -135,7 +162,7 @@ render_begin = (doc) => {
   let xLabel = xyLabels.unique('#xLabel', (p) => p.div({id: 'xLabel', class: 'label'}))
   let yLabel = xyLabels.unique('#yLabel', (p) => p.div({id: 'yLabel', class: 'label'}))
   let update = (e) => {
-    let {x, y} = toData({
+    let {x, y} = dataToView({
       x: e.pageX - e.target.offsetLeft,
       y: e.pageY - e.target.offsetTop
     })

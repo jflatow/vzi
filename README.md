@@ -17,7 +17,13 @@ There are three ways to tell `vzi` how to execute its pipe:
 ```
 cat events | vzi pipe.js
 cat events | vzi -c '...'
-cat events | vzi -m xyz/scatter
+cat events | vzi -m module
+```
+
+Try this:
+
+```
+bin/gen-yxz | vzi -m scatter
 ```
 
 If the `-O, --no-output` option is given, output will be disabled.

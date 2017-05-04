@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+
+let i = 0;
+const dataTimer = setInterval(() => {
+  let c = 20 * i++, r = 10;
+  process.stdout.write(`${c} ${c} ${r}\n`)
+}, 80)
