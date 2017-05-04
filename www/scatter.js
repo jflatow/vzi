@@ -1,12 +1,14 @@
+const vzi = require('../lib/vzi')
 const Sky = require('sky')
 const Sun = require('sky/sun')
 const U = Sky.util, dfn = U.dfn, clip = U.clip;
-const {min, max, log, log2, log10, sqrt, sin, cos} = Math, tau = 2 * Math.PI;
 const {
   x: xp,
   y: yp,
   r: rp,
   c: cp,
+  xs,
+  ys,
   alpha = .1,
   xMin = -Infinity,
   xMax = +Infinity,
@@ -14,18 +16,12 @@ const {
   yMax = +Infinity
 } = Conf.define;
 
-let indexOrEvalFun = (p, d) => {
-  if (p == undefined)
-    return d;
-  let k = parseInt(p)
-  if (isNaN(k))
-    return ($, i) => eval(p) // NB: use a flamboyant variable for cli
-  return (parts, i) => parseFloat(parts[k])
-}
-let xVal = indexOrEvalFun(xp, (parts, i) => dfn(parseFloat(parts[1]), i))
-let yVal = indexOrEvalFun(yp, (parts, i) => dfn(parseFloat(parts[0]), 0))
-let rVal = indexOrEvalFun(rp, (parts, i) => 8)
+let xVal = vzi.indexOrEvalFun(xp, (parts, i) => dfn(parseFloat(parts[1]), i))
+let yVal = vzi.indexOrEvalFun(yp, (parts, i) => dfn(parseFloat(parts[0]), 0))
+let rVal = vzi.indexOrEvalFun(rp, (parts, i) => 8)
 let cVal = (parts, i) => parts[cp] || parts[2] || '-'
+let xStr = vzi.maybeEvalFun(xs, (x) => x.toFixed(2))
+let yStr = vzi.maybeEvalFun(ys, (y) => y.toFixed(2))
 
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels;
@@ -100,12 +96,6 @@ function dataToView({x, y}) {
   }
 }
 
-let lat = (lat, tileSize = 256) => {
-  let siny = clip(sin(lat * tau / 360), -0.9999, 0.9999)
-  return log((1 + siny) / (1 - siny)) * (tileSize / Math.PI)
-}
-let lng = (lng, tileSize = 256) => lng * tileSize / 360;
-
 render_begin = (doc) => {
   head = Sky.$(doc.head)
   head.unique('style', (head) => {
@@ -166,8 +156,8 @@ render_begin = (doc) => {
       x: e.pageX - e.target.offsetLeft,
       y: e.pageY - e.target.offsetTop
     })
-    xLabel.txt(`x = ${x.toFixed(2)}`)
-    yLabel.txt(`y = ${y.toFixed(2)}`)
+    xLabel.txt(`x = ${xStr(x)}`)
+    yLabel.txt(`y = ${yStr(y)}`)
   }
   canvas.on('mouseenter', update)
   canvas.on('mousemove', Sun.throttle(update, 1))

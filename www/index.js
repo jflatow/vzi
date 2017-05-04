@@ -5,6 +5,9 @@ let Serializer = new XMLSerializer;
 
 window.VZIState = State;
 
+// Make these generally available
+const {min, max, exp, log, log2, log10, pow, sqrt, sin, cos} = Math, tau = 2 * Math.PI;
+
 /* This API can/should be overridden by user-defined functions.
  * It is often enough to simply overwrite `render_event`.
  */
