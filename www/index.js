@@ -1,4 +1,4 @@
-let Conf = {}, Count = 0, Rate = 0, RenderState = ''
+let Conns = [], Conf = {}, Count = 0, Rate = 0, RenderState = ''
 let Error = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
@@ -52,10 +52,48 @@ function handle_data(enc) {
     Error.innerText = `Error evaluating data: ${e}`
     console.error(e)
   }
+  Conns.map((conn) => conn.send(`handle_data("${enc}")`))
   return report()
 }
 
 function handle_done() {
   console.debug('done')
+  Conns.map((conn) => conn.send(`handle_done()`))
   return report()
 }
+
+((doc, api_key, share) => {
+  let script = doc.createElement('script')
+  script.type = 'text/javascript'
+  script.async = true;
+  script.src = 'http://cdn.peerjs.com/0.3/peer.js'
+  script.onload = () => {
+    let me = new Peer({key: api_key})
+    let hash = doc.location.hash.substr(1)
+    if (hash.startsWith('host=')) { // given host
+      let host = hash.split('=')[1]
+      let conn = me.connect(host, {reliable: true, debug: true})
+      conn.on('data', (data) => eval(data))
+    } else {                        // I am host
+      me.on('open', (id) => {
+        doc.getElementById('share').href = `${share}#host=${id}`
+      })
+      me.on('connection', (conn) => {
+        Conns.push(conn);
+        conn.on('open', () => {
+          // other messages sent when they occur, but init can be missed
+          // in general the handle_init function should be idempotent
+          // since e.g. when reusing a page, it will be called again
+          conn.send(`handle_init(${JSON.stringify(Conf)})`)
+        })
+        conn.on('close', () => {
+          let i = Conns.indexOf(conn)
+          if (i >= 0)
+            Conns.splice(i, 1)
+        })
+        conn.on('error', (e) => console.error(e))
+      })
+    }
+  }
+  doc.getElementsByTagName('head')[0].appendChild(script)
+})(document, 'wye3ak7fgi5ghkt9', 'http://jflatow.github.io/vzi/www')
