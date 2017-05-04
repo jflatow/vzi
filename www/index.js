@@ -1,4 +1,4 @@
-let Conns = [], Conf = {}, Count = 0, Rate = 0, RenderState = ''
+let Conns = [], Conf = {}, Count = 0, Rate = 0, State = {}
 let Error = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
@@ -36,29 +36,33 @@ function handle_init(conf) {
         Error.innerText = `Error evaluating ${mode}: ${e}`
         console.error(e)
       }
+  State.initialized = true;
   return report()
 }
 
 function handle_data(enc) {
-  const data = atob(enc)
-  try {
-    switch (Conf.format) {
-    case 'unix':
-    default:
-      RenderState = render_lines(data, Report.contentDocument, RenderState)
-      break;
+  if (State.initialized) { // NB: when streaming, make sure clients init first
+    const data = atob(enc)
+    try {
+      switch (Conf.format) {
+      case 'unix':
+      default:
+        State.render = render_lines(data, Report.contentDocument, State.render)
+        break;
+      }
+    } catch (e) {
+      Error.innerText = `Error evaluating data: ${e}`
+      console.error(e)
     }
-  } catch (e) {
-    Error.innerText = `Error evaluating data: ${e}`
-    console.error(e)
+    Conns.map((conn) => conn.send(`handle_data("${enc}")`))
   }
-  Conns.map((conn) => conn.send(`handle_data("${enc}")`))
   return report()
 }
 
 function handle_done() {
-  console.debug('done')
-  Conns.map((conn) => conn.send(`handle_done()`))
+  if (State.initialized) { // NB: when streaming, make sure clients init first
+    Conns.map((conn) => conn.send(`handle_done()`))
+  }
   return report()
 }
 
@@ -84,6 +88,8 @@ function handle_done() {
           // other messages sent when they occur, but init can be missed
           // in general the handle_init function should be idempotent
           // since e.g. when reusing a page, it will be called again
+          // TODO: add send/recv catchup data callbacks in pipes
+          //       e.g. scatter would send canvas as image, recv and draw
           conn.send(`handle_init(${JSON.stringify(Conf)})`)
         })
         conn.on('close', () => {
