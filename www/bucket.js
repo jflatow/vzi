@@ -37,7 +37,7 @@ let SF, setDefaultSort = (defaultOrderBy = 'key') => {
     return SF = {
       roundIndex: Math.floor,
       lessThan: (l, h) => l < h,
-      comesBefore: ({k}, {k: k_}) => k < k_,
+      comesBefore: ({k, c}, {k: k_, c: c_}) => [k, c] < [k_, c_],
       siblingAfter: (n) => n.nextSibling,
       insertBefore: (a, b) => b.parentNode.insertBefore(a, b)
     }
@@ -48,7 +48,7 @@ setDefaultSort(orderBy)
 let head, style, body, main, labels, buckets;
 let colorLabels, kvLabels;
 let bucketMap = {}, bucketTransform, colorMap = new vzi.ColorMap(alpha)
-let oldMaxVal = 1, newMaxVal = 1, maxBucket;
+let oldMaxVal, newMaxVal, maxBucket;
 
 function insertionPoint(nodes, point) {
   let L = 0, H = nodes.length;
@@ -94,6 +94,11 @@ function addToBucket(bucket, {k, v, c}) {
       // the max itself has constant height
       bucket.style({height: '85vh'})
     }
+    // save the maxes
+    main.attrs({
+      'data-new-max-val': newMaxVal,
+      'data-old-max-val': oldMaxVal
+    })
     // whenever we update max: shrink the old max as % of new max
     return buckets.style({height: 80 * xPerY(oldMaxVal, newMaxVal) + 'vh'}), bucket;
   }
@@ -182,21 +187,38 @@ render_begin = (doc) => {
 
   labels = main.unique('#labels', (p) => p.div({id: 'labels'}))
   buckets = main.unique('#buckets', (p) => p.div({id: 'graph'}).div({id: 'buckets'}))
+  buckets.each('.bucket', (node) => {
+    let dp = dataPoint(node), b = `${dp.k}, ${dp.c}`
+    let bucket = bucketMap[b] = Sky.$(node)
+    if (!maxBucket)
+      maxBucket = bucket;
+    else if (SF.comesBefore(dataPoint(maxBucket.node), dp))
+      maxBucket = bucket;
+  })
+
+  let domv = main.attr('data-old-max-val'),
+      dnmv = main.attr('data-new-max-val')
+  let init = !(domv || dnmv)
+
+  oldMaxVal = domv || 1;
+  newMaxVal = dnmv || 1;
 
   colorLabels = labels.unique('#colors', (p) => p.div({id: 'colors'}))
   colorLabels.colorLabelData(colorMap, alpha)
-  colorLabels.swipe(colorLabels.wagon())
+  init && colorLabels.swipe(colorLabels.wagon())
 
   kvLabels = labels.unique('#kvs', (p) => p.div({id: 'kvs'}))
 
   let kLabel = kvLabels.unique('#kLabel', (p) => p.div({id: 'kLabel', class: 'label'}))
   let vLabel = kvLabels.unique('#vLabel', (p) => p.div({id: 'vLabel', class: 'label'}))
-  let update = Sun.throttle((e) => {
-    let {k, v} = dataPoint(e.target)
+  let update = (e) => {
+    let {k, v, c} = dataPoint(e.target)
     if (e.type == 'mouseout' || (!k && !v)) {
       kLabel.txt(`# buckets: ${buckets.node.children.length}`)
       vLabel.txt(`max value: ${newMaxVal}`)
       kvLabels.style({top: '', left: '', right: ''})
+      c && colorLabels.$(`.color[data-name="${c}"] .label`)
+        .style({'background-color': 'initial'})
     } else {
       kLabel.txt(`k = ${k}`)
       vLabel.txt(`v = ${v}`)
@@ -204,10 +226,12 @@ render_begin = (doc) => {
         e.pageX + (e.pageX > body.bbox().midX ? -(kvLabels.bbox().w + 20) : 20),
         e.pageY - kvLabels.bbox().h / 2
       )
+      c && colorLabels.$(`.color[data-name="${c}"] .label`)
+        .style({'background-color': 'rgba(0, 0, 0, .1)'})
     }
-  }, 5)
-  buckets.on('mouseover', update)
-  buckets.on('mouseout', update)
+  }
+  init && buckets.on('mouseover', Sun.throttle(update, 5))
+  init && buckets.on('mouseout', Sun.throttle(update, 5))
 }
 
 render_event = (event, doc, i) => {
