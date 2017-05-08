@@ -54,6 +54,7 @@ async function gatherOpts(args) {
     args: args,
     headless: args.headless,
     keep_alive: args['keep-alive'],
+    always: args.output ? true : false,
     define: await defineParams(args),
     format: await determineFormat(args),
     output: await determineOutput(args),
@@ -164,6 +165,7 @@ class Client {
   async connectPage() {
     const opts = this.opts;
     const conf = JSON.stringify({
+      always: opts.always,
       define: opts.define,
       format: opts.format,
       pipe: opts.pipe

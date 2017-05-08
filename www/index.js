@@ -1,4 +1,4 @@
-let Conf = {}, State = {conns: [], count: 0}
+let Conf = {}, State = {conns: [], count: 0, render: ''}
 let ErrorReport = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
@@ -14,8 +14,10 @@ var render_event = (event, doc, i) => doc.body.innerText = event;
 var render_lines = (data, doc, state) => {
   const lines = (state + data).split('\n')
   const final = lines.pop() // either empty (if complete) or leftover
-  for (let event of lines)
+  for (let event of lines) {
     render_event(event, doc, State.count++)
+    document.title = `vzi (${State.count})`
+  }
   return data.endsWith('\n') ? '' : final;
 }
 
@@ -23,8 +25,9 @@ var render_lines = (data, doc, state) => {
  * It can be overwritten though too, if you know what you are doing.
  */
 
-function report() {
-  return Serializer.serializeToString(Report.contentDocument) + '\n'
+function report(always = true) {
+  if (always || Conf.always)
+    return Serializer.serializeToString(Report.contentDocument) + '\n'
 }
 
 function handle_init(conf) {
@@ -58,7 +61,7 @@ function handle_data(enc) {
     }
     State.conns.map((conn) => conn.open && conn.send(`handle_data("${enc}")`))
   }
-  return report()
+  return report(false)
 }
 
 function handle_done() {
