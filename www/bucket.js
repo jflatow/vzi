@@ -47,16 +47,8 @@ setDefaultSort(orderBy)
 
 let head, style, body, main, labels, buckets;
 let colorLabels, kvLabels;
-let bucketMap = {}, bucketTransform, colorMap = new vzi.ColorMap()
+let bucketMap = {}, bucketTransform, colorMap = new vzi.ColorMap(alpha)
 let oldMaxVal = 1, newMaxVal = 1, maxBucket;
-
-function color(c) {
-  return colorMap.obtain(c, alpha, (rgb) => {
-    let div = colorLabels.row(['1em', '1ex', 'fit'])
-    div.nth(0).style({width: '1em', height: '1em', backgroundColor: new Sky.RGB(rgb).update({a: 1})})
-    div.nth(2).attrs({class: 'label'}).txt(c)
-  })
-}
 
 function insertionPoint(nodes, point) {
   let L = 0, H = nodes.length;
@@ -77,7 +69,9 @@ function newBucket(point) {
     'data-k': k,
     'data-v': 0,
     'data-c': c
-  }).style({'background-color': color(c)}).order(i)
+  }).style({
+    'background-color': colorMap.colorIn(c, colorLabels)
+  }).order(i)
 }
 
 function addToBucket(bucket, {k, v, c}) {
@@ -190,6 +184,7 @@ render_begin = (doc) => {
   buckets = main.unique('#buckets', (p) => p.div({id: 'graph'}).div({id: 'buckets'}))
 
   colorLabels = labels.unique('#colors', (p) => p.div({id: 'colors'}))
+  colorLabels.colorLabelData(colorMap, alpha)
   colorLabels.swipe(colorLabels.wagon())
 
   kvLabels = labels.unique('#kvs', (p) => p.div({id: 'kvs'}))

@@ -28,43 +28,21 @@ let yStr = vzi.maybeEvalFun(ys, (y) => y.toFixed(2))
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels, originLabel, skipLabel;
 let cbox, dbox, vbox, skips = 0;
-let colorMap = new vzi.ColorMap()
-
-function color(c) {
-  return colorMap.obtain(c, alpha, (rgb) => {
-    let div = colorLabels.row(['1em', '1ex', 'fit'])
-    div.nth(0).style({width: '1em', height: '1em', backgroundColor: new Sky.RGB(rgb).update({a: 1})})
-    div.nth(2).attrs({class: 'label'}).txt(c)
-  })
-}
+let colorMap = new vzi.ColorMap(alpha)
 
 function dot({x, y, c, r}) {
   let {x: cx, y: cy} = dataToCanvas({x, y})
-  ctx.fillStyle = color(c)
+  ctx.fillStyle = colorMap.colorIn(c, colorLabels)
   ctx.beginPath()
   ctx.arc(cx, cy, r, 0, tau)
   ctx.fill()
 }
 
-Sky.Box.prototype.analog = function (d, s) {
-  // this box, if it were in system d instead of s
-  let a = this, b = Sky.box()
-  b.w = a.w * d.w / s.w;
-  b.h = a.h * d.h / s.h;
-  b.x = (a.x - s.x) * d.w / s.w + d.x;
-  b.y = (a.y - s.y) * d.h / s.h + d.y;
-  return b;
-}
-
-Sky.Box.prototype.closure = function (like) {
-  // smallest box that contains this one and is proportional to like
-  if (like.w > like.h)
-    return this.copy({h: this.w * like.w / like.h})
-  return this.copy({w: this.h * like.h / like.w})
-}
-
-function resize(dbox = Sky.box()) {
+function resize(x, y) {
   let real = canvas.node, fake = fctx.canvas;
+
+  // add the new data point
+  dbox = dbox.join(Sky.box(Math.min(x, 0), Math.min(y, 0), x, y))
 
   // copy the real canvas to the fake one temporarily
   fake.width = real.width,
@@ -92,6 +70,12 @@ function resize(dbox = Sky.box()) {
   // mark the origin
   let {x: ox, y: oy} = dataToViewport({x: 0, y: 0}), o = originLabel.node;
   originLabel.xy(ox, oy)
+
+  // save the changes
+  main.attrs({
+    'data-dbox': dbox,
+    'data-vbox': vbox
+  })
 }
 
 function dataToCanvas({x, y}) {
@@ -125,8 +109,8 @@ function viewportToData({x, y}) {
 
 render_begin = (doc) => {
   head = Sky.$(doc.head)
-  head.unique('style', (head) => {
-    return head.child('style').addRules({
+  head.unique('#styles', (head) => {
+    return head.child('style', {id: 'styles'}).addRules({
       '*': {
         'box-sizing': 'border-box'
       },
@@ -194,20 +178,26 @@ render_begin = (doc) => {
   labels = main.unique('#labels', (p) => p.div({id: 'labels'}))
   canvas = main.unique('#canvas', (p) => p.child('canvas', {id: 'canvas'}))
 
+  let ddbox = main.attr('data-dbox'),
+      dvbox = main.attr('data-vbox')
+  let init = !(ddbox || dvbox)
+
   cbox = canvas.bbox()
-  dbox = Sky.box()
-  vbox = Sky.box(0, 0, 1, 1)
+  dbox = eval(`Sky.box(${ddbox || '0,0,0,0'})`)
+  vbox = eval(`Sky.box(${dvbox || '0,0,1,1'})`)
+
   ctx = canvas.node.getContext('2d')
   fctx = doc.createElement('canvas').getContext('2d')
 
   colorLabels = labels.unique('#colors', (p) => p.div({id: 'colors'}))
-  colorLabels.swipe(colorLabels.wagon())
+  colorLabels.colorLabelData(colorMap, alpha)
+  init && colorLabels.swipe(colorLabels.wagon())
 
   xyLabels = labels.unique('#xys', (p) => p.div({id: 'xys'}))
   originLabel = labels.unique('#origin', (p) => p.div({id: 'origin'}))
 
   skipLabel = labels.unique('#skips', (p) => p.div({id: 'skips', class: 'label'}))
-  skipLabel.swipe(skipLabel.wagon())
+  init && skipLabel.swipe(skipLabel.wagon())
 
   let xLabel = xyLabels.unique('#xLabel', (p) => p.div({id: 'xLabel', class: 'label'}))
   let yLabel = xyLabels.unique('#yLabel', (p) => p.div({id: 'yLabel', class: 'label'}))
@@ -223,8 +213,8 @@ render_begin = (doc) => {
       e.pageY - xyLabels.bbox().h / 2
     )
   }
-  canvas.on('mouseenter', update)
-  canvas.on('mousemove', Sun.throttle(update, 5))
+  init && canvas.on('mouseenter', update)
+  init && canvas.on('mousemove', Sun.throttle(update, 5))
   resize()
 }
 
@@ -239,8 +229,8 @@ render_event = (event, doc, i) => {
     return skipLabel.txt(`${skips++} skipped`)
 
   if (x < vbox.left || x > vbox.right || y < vbox.top || y > vbox.bottom)
-    resize(dbox = dbox.join(Sky.box(Math.min(x, 0), Math.min(y, 0), x, y)))
+    resize(x, y)
   dot({x, y, c, r})
 }
 
-window.onresize = () => resize(dbox)
+window.onresize = () => resize()

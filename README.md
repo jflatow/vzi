@@ -111,6 +111,9 @@ $ cat events | vzi -c '...'
 $ cat events | vzi -m module
 ```
 
+If the `-K, --keep-alive` option is given, *vzi* will not attempt to close the browser.
+The `-OK` can be used together for a quiet, interactive session.
+
 If the `-O, --no-output` option is given, output will be disabled.
 If the `-o, --output` option is given, *vzi* will write its report state to the output path after every batch of events.
 In this way, one can watch the output file for changes in order to observe the recent state of the pipeline (e.g. when running headless).

@@ -1,6 +1,6 @@
 {
   "name": "vzi",
-  "description": "Pipe data to the browser from the command line (and produce visual reports)",
+  "description": "Pipe data from the command line to the browser (and produce visual reports)",
   "author": "Jared Flatow",
   "license": "MPL-2.0",
   "repository" : "jflatow/vzi",
