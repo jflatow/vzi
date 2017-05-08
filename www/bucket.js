@@ -7,16 +7,18 @@ const {
   k: kp,
   v: vp,
   c: cp,
-  scale,
   alpha = .8,
   period = 1000,
-  orderBy
+  scale = null,
+  split = '\\s+',
+  orderBy = null
 } = Conf.define;
 
 let key = vzi.indexOrEvalFun(kp, () => ~~((new Date - 0) / period), false)
 let val = vzi.indexOrEvalFun(vp, () => 1)
 let cVal = (parts, i) => parts[cp] || '-'
 let xPerY = ((s) => s ? (x, y) => s(x) / s(y) : (x, y) => x / y)(vzi.maybeEvalFun(scale))
+let splitRE = new RegExp(split)
 
 let SF, setDefaultSort = (defaultOrderBy = 'key') => {
   switch (orderBy || defaultOrderBy) {
@@ -235,7 +237,7 @@ render_begin = (doc) => {
 }
 
 render_event = (event, doc, i) => {
-  let parts = event.split(/\s+/)
+  let parts = event.split(splitRE)
   let k = key(parts, i),
       v = val(parts, i),
       c = cVal(parts, i)

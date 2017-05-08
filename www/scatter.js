@@ -12,6 +12,7 @@ const {
   xs,
   ys,
   alpha = .1,
+  split = '\\s+',
   xMin = -Infinity,
   xMax = +Infinity,
   yMin = -Infinity,
@@ -24,6 +25,7 @@ let rVal = vzi.indexOrEvalFun(rp, (parts, i) => 4)
 let cVal = (parts, i) => parts[cp] || parts[2] || '-'
 let xStr = vzi.maybeEvalFun(xs, (x) => x.toFixed(2))
 let yStr = vzi.maybeEvalFun(ys, (y) => y.toFixed(2))
+let splitRE = new RegExp(split)
 
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels, originLabel, skipLabel;
@@ -219,7 +221,7 @@ render_begin = (doc) => {
 }
 
 render_event = (event, doc, i) => {
-  let parts = event.split(/\s+/)
+  let parts = event.split(splitRE)
   let x = clip(xVal(parts, i), xMin, xMax),
       y = clip(yVal(parts, i), yMin, yMax),
       r = rVal(parts, i),
