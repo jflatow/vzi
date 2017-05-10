@@ -92,7 +92,7 @@ When you are done, close the pipe using `^D`.
 If you've cloned the *vzi* repo directory, you can try this from inside it:
 
 ```
-$ bin/gen-yxz | vzi -m scatter
+$ bin/gen-yxz | vzi -m scatter -d c=2
 ```
 
 ## Usage

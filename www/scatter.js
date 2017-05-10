@@ -19,13 +19,12 @@ const {
   yMax = +Infinity
 } = Conf.define;
 
-let xVal = vzi.indexOrEvalFun(xp, (parts, i) => dfn(parseFloat(parts[1]), i))
-let yVal = vzi.indexOrEvalFun(yp, (parts, i) => dfn(parseFloat(parts[0]), 0))
-let rVal = vzi.indexOrEvalFun(rp, (parts, i) => 4)
-let cVal = (parts, i) => parts[cp] || parts[2] || '-'
+let xVal = vzi.indexOrEvalFun(xp, (ev, i) => dfn(parseFloat(ev[1]), i))
+let yVal = vzi.indexOrEvalFun(yp, (ev, i) => dfn(parseFloat(ev[0]), 0))
+let rVal = vzi.indexOrEvalFun(rp, (ev, i) => 4)
+let cVal = (ev, i) => ev[cp] || '-'
 let xStr = vzi.maybeEvalFun(xs, (x) => x.toFixed(2))
 let yStr = vzi.maybeEvalFun(ys, (y) => y.toFixed(2))
-let splitRE = new RegExp(split)
 
 let head, body, main, labels, canvas, ctx, fctx;
 let colorLabels, xyLabels, originLabel, skipLabel;
@@ -109,7 +108,7 @@ function viewportToData({x, y}) {
   }
 }
 
-render_begin = (doc) => {
+render_begin = (doc, i) => {
   head = Sky.$(doc.head)
   head.unique('#styles', (head) => {
     return head.child('style', {id: 'styles'}).addRules({
@@ -182,7 +181,6 @@ render_begin = (doc) => {
 
   let ddbox = main.attr('data-dbox'),
       dvbox = main.attr('data-vbox')
-  let init = !(ddbox || dvbox)
 
   cbox = canvas.bbox()
   dbox = eval(`Sky.box(${ddbox || '0,0,0,0'})`)
@@ -193,13 +191,13 @@ render_begin = (doc) => {
 
   colorLabels = labels.unique('#colors', (p) => p.div({id: 'colors'}))
   colorLabels.colorLabelData(colorMap, alpha)
-  init && colorLabels.swipe(colorLabels.wagon())
+  !i && colorLabels.swipe(colorLabels.wagon())
 
   xyLabels = labels.unique('#xys', (p) => p.div({id: 'xys'}))
   originLabel = labels.unique('#origin', (p) => p.div({id: 'origin'}))
 
   skipLabel = labels.unique('#skips', (p) => p.div({id: 'skips', class: 'label'}))
-  init && skipLabel.swipe(skipLabel.wagon())
+  !i && skipLabel.swipe(skipLabel.wagon())
 
   let xLabel = xyLabels.unique('#xLabel', (p) => p.div({id: 'xLabel', class: 'label'}))
   let yLabel = xyLabels.unique('#yLabel', (p) => p.div({id: 'yLabel', class: 'label'}))
@@ -211,21 +209,20 @@ render_begin = (doc) => {
     xLabel.txt(`x = ${xStr(x)}`)
     yLabel.txt(`y = ${yStr(y)}`)
     xyLabels.xy(
-      e.pageX + (e.pageX > cbox.midX ? -(xyLabels.bbox().w + 20) : 20),
+      e.pageX + (e.pageX > cbox.midX ? -(xyLabels.bbox().w + 16) : 16),
       e.pageY - xyLabels.bbox().h / 2
     )
   }
-  init && canvas.on('mouseenter', update)
-  init && canvas.on('mousemove', Sun.throttle(update, 5))
+  !i && canvas.on('mouseenter', update)
+  !i && canvas.on('mousemove', Sun.throttle(update, 5))
   resize()
 }
 
 render_event = (event, doc, i) => {
-  let parts = event.split(splitRE)
-  let x = clip(xVal(parts, i), xMin, xMax),
-      y = clip(yVal(parts, i), yMin, yMax),
-      r = rVal(parts, i),
-      c = cVal(parts, i)
+  let x = clip(xVal(event, i), xMin, xMax),
+      y = clip(yVal(event, i), yMin, yMax),
+      r = rVal(event, i),
+      c = cVal(event, i)
 
   if (!isFinite(x) || !isFinite(y))
     return skipLabel.txt(`${skips++} skipped`)

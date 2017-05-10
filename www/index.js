@@ -1,58 +1,78 @@
-let Conf = {}, State = {conns: [], count: 0, render: ''}
+var Conf = {} // will be available to pipe
+let State = {conns: [], count: 0, init: 0, render: ''}
 let ErrorReport = document.getElementById('error')
 let Report = document.getElementById('report')
 let Serializer = new XMLSerializer;
 
+// NB: mainly for debugging
+window.VZIConf = Conf;
 window.VZIState = State;
 
-/* This API can/should be overridden by user-defined functions.
- * It is often enough to simply overwrite `render_event`.
+/* This is the glue between the input formats / events.
  */
 
-var render_begin = (doc, conf) => {}
-var render_event = (event, doc, i) => doc.body.innerText = event;
-var render_lines = (data, doc, state) => {
-  const lines = (state + data).split('\n')
+var render_lines = (data, doc, buf, sep) => {
+  const lines = (buf + data).split('\n')
   const final = lines.pop() // either empty (if complete) or leftover
-  for (let event of lines) {
-    render_event(event, doc, State.count++)
-    document.title = `vzi (${State.count})`
+  for (let line of lines) {
+    Report.contentWindow.render_event(line.split(sep), doc, State.count++)
+    document.title = `vzi (${State.count} in ${State.init})`
   }
   return data.endsWith('\n') ? '' : final;
 }
 
-/* This API is needed to bootstrap the page.
- * It can be overwritten though too, if you know what you are doing.
+/* This API is needed to bootstrap and communicate with the page.
+ * The driver calls the handle_* callbacks using the DevTools protocol.
  */
 
 function report(always = true) {
-  if (always || Conf.always)
-    return Serializer.serializeToString(Report.contentDocument) + '\n'
+  if (always || Conf.always) {
+    // NB: force serialize style elements (TODO: canvas too?)
+    let doc = Report.contentDocument;
+    for (let s of doc.getElementsByTagName('style'))
+      s.textContent = Array.prototype.map.call(s.sheet.rules, ((r) => r.cssText)).join('\n')
+    return `<!DOCTYPE html>\n${doc.children[0].outerHTML}\n`
+  }
 }
 
 function handle_init(conf) {
   const {pipe} = Conf = conf;
-  for (let mode of ['file', 'cli', 'module'])
-    if (conf.pipe[mode])
-      try {
-        let code = eval(conf.pipe[mode])
-        render_begin(Report.contentDocument, conf)
-      } catch (e) {
-        ErrorReport.innerText = `Error evaluating ${mode}: ${e}`
-        console.error(e)
-      }
-  State.initialized = true;
+  let doc = Report.contentDocument, win = Report.contentWindow;
+  let script = doc.createElement('script')
+  script.id = 'pipe-js'
+  script.text = `
+/* This API can/should be overridden by user-defined functions.
+ * It is often enough to simply overwrite \`render_event\`.
+ */
+window.render_begin = (doc, init) => {}
+window.render_event = (event, doc, i) => doc.body.innerText = event;
+window.onload = () => render_begin(document, 0)
+Conf = ${JSON.stringify(Conf)};
+`
+  try {
+    for (let mode of ['file', 'cli', 'module'])
+      if (pipe[mode])
+        script.text += `${pipe[mode]};`
+    if (doc.getElementById('pipe-js'))
+      doc.body.removeChild(doc.getElementById('pipe-js'))
+    doc.body.appendChild(script)
+    win.render_begin(doc, State.init++)
+  } catch (e) {
+    ErrorReport.innerText = `Error evaluating ${mode}: ${e}`
+    console.error(e)
+  }
   return report()
 }
 
 function handle_data(enc) {
-  if (State.initialized) { // NB: when streaming, make sure clients init first
+  if (State.init) { // NB: when streaming, make sure clients init first
     const data = atob(enc)
     try {
       switch (Conf.format) {
       case 'unix':
       default:
-        State.render = render_lines(data, Report.contentDocument, State.render)
+        State.sep = State.sep || new RegExp(Conf.separator || '\\s+')
+        State.render = render_lines(data, Report.contentDocument, State.render, State.sep)
         break;
       }
     } catch (e) {
@@ -65,11 +85,15 @@ function handle_data(enc) {
 }
 
 function handle_done() {
-  if (State.initialized) { // NB: when streaming, make sure clients init first
+  if (State.init) { // NB: when streaming, make sure clients init first
     State.conns.map((conn) => conn.open && conn.send(`handle_done()`))
   }
   return report()
 }
+
+/* Adds "share" functionality via WebRTC.
+ * NB: Experimental and may not very be useful as is.
+ */
 
 ((doc, api_key, share_url) => {
   let script = doc.createElement('script')
@@ -111,5 +135,5 @@ function handle_done() {
       })
     }
   }
-  doc.getElementsByTagName('head')[0].appendChild(script)
+  doc.head.appendChild(script)
 })(document, 'wye3ak7fgi5ghkt9', 'http://jflatow.github.io/vzi/www')

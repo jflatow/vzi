@@ -168,7 +168,8 @@ class Client {
       always: opts.always,
       define: opts.define,
       format: opts.format,
-      pipe: opts.pipe
+      pipe: opts.pipe,
+      separator: opts.separator
     })
     return new Promise(
       async (okay, fail) => {
@@ -348,6 +349,7 @@ async function main() {
       'o': 'output',
       'p': 'browser-port',
       'P': 'page-token',
+      's': 'separator',
       'w': 'window-size'
     },
     boolean: ['help', 'headless', 'keep-alive', 'no-output'],
