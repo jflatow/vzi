@@ -78,6 +78,10 @@ It should open a window in the browser.
 If not, you may need to use the `-b` option to tell *vzi* where the browser executable path is.
 For a complete list of options: `vzi -h`.
 
+If Chrome is already launched without the remote debugging port open, you'll get an error when *vzi* requests a new page (i.e. `/json/new`).
+In that case, just quit Chrome and let *vzi* launch it the way it wants, or re-open it yourself with the port open.
+The default port used by *vzi* is `9222`, but you can specify it using the `-p` option.
+
 With the browser window still open, on the *stdin* pipe that is open to the browser, you can type a message:
 
 ```
