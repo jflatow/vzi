@@ -16,8 +16,12 @@ const {
 
 let key = vzi.indexOrEvalFun(kp, () => ~~((new Date - 0) / period), false)
 let val = vzi.indexOrEvalFun(vp, () => 1)
-let cVal = (parts, i) => parts[cp] || '-'
-let xPerY = ((s) => s ? (x, y) => s(x) / s(y) : (x, y) => x / y)(vzi.maybeEvalFun(scale))
+let cVal = (ev, i) => ev[cp] || key(ev, i) || '-'
+let xPerY = ((scale) => {
+  if (scale)
+    return (x, y) => scale(x) / scale(y)
+  return (x, y) => x / y;
+})(vzi.maybeEvalFun(scale))
 let bucketName = ({k, c}) => `${k}, ${c}`
 
 let VF, setDefaultStat = (defaultStat = 'sum') => {
@@ -52,6 +56,17 @@ let SF, setDefaultSort = (defaultOrderBy = 'key') => {
       siblingAfter: (n) => n.previousSibling,
       insertBefore: (a, b) => b.parentNode.insertBefore(a, b.nextSibling)
     }
+  case 'kc':
+  case 'keyColor':
+    return SF = {
+      roundIndex: Math.floor,
+      lessThan: (l, h) => l < h,
+      comesBefore: ({k, c}, {k: k_, c: c_}) => [k, c] < [k_, c_],
+      siblingAfter: (n) => n.nextSibling,
+      insertBefore: (a, b) => b.parentNode.insertBefore(a, b)
+    }
+  case 'ck':
+  case 'colorKey':
   case 'name':
   case 'key':
   case 'k':
@@ -105,7 +120,7 @@ function addToBucket(bucket, {k, v, c}) {
   if (val > newMaxVal) {
     // one way or another, this is the new max
     newMaxVal = val;
-    if (maxBucket != bucket) {
+    if (maxBucket != bucket || newMaxVal / oldMaxVal > 4) {
       // if the max bucket changes, update the old max
       oldMaxVal = newMaxVal;
       maxBucket = bucket;
@@ -191,15 +206,19 @@ render_begin = (doc, i) => {
 
       '#buckets': {
         'height': '80vh',
+        'min-height': '2px',
         'display': 'flex',
         'justify-content': 'space-around',
         'align-items': 'flex-end',
         'overflow-y': 'visible'
       },
+      '#buckets.locked:hover': {
+        'cursor': 'no-drop'
+      },
       '#buckets .bucket': {
         'flex': '1 0 auto',
         'margin': '0 4px',
-        'min-width': '20px',
+        'min-width': '16px',
         'transition': 'all 0.3s'
       },
       '#buckets .bucket:hover': {
@@ -242,34 +261,34 @@ render_begin = (doc, i) => {
   let locked = false;
   let update = (e) => {
     let {k, v, c} = dataPoint(e.target)
-    if (e.type == 'mouseout' || !k) {
+    if (e.type == 'mouseout' || !(k || v)) {
+      kLabel.txt(`# buckets: ${buckets.node.children.length}`)
+      vLabel.txt(`max value: ${newMaxVal}`)
+      cLabel.txt(`occurs in: ${dataPoint(maxBucket.node).k}`)
+      c && colorLabels.$(`.color[data-name="${btoa(c)}"] .label`)
+        .style({'background-color': 'initial'})
       if (!locked) {
-        kLabel.txt(`# buckets: ${buckets.node.children.length}`)
-        vLabel.txt(`max value: ${newMaxVal}`)
-        cLabel.txt(``)
         kvLabels.style({top: '', left: '', right: ''})
       }
-      c && colorLabels.$(`.color[data-name="${c}"] .label`)
-        .style({'background-color': 'initial'})
     } else {
+      kLabel.txt(`k = ${k}`)
+      vLabel.txt(`v = ${VF.val(v)}`)
+      cLabel.txt(c == '-' ? '' : `c = ${c}`)
+      c && colorLabels.$(`.color[data-name="${btoa(c)}"] .label`)
+        .style({'background-color': 'rgba(0, 0, 0, .1)'})
       if (!locked) {
-        kLabel.txt(`k = ${k}`)
-        vLabel.txt(`v = ${VF.val(v)}`)
-        cLabel.txt(c == '-' ? '' : `c = ${c}`)
         kvLabels.style({right: 'auto'}).xy(
           e.pageX + (e.pageX > body.bbox().midX ? -(kvLabels.bbox().w + 16) : 16),
           e.pageY - kvLabels.bbox().h / 2
         )
       }
-      c && colorLabels.$(`.color[data-name="${c}"] .label`)
-        .style({'background-color': 'rgba(0, 0, 0, .1)'})
     }
     kvLabels.style({border: locked ? '1px solid #aaa' : ''})
   }
   !i && buckets.on('mouseover', Sun.throttle(update, 5))
   !i && buckets.on('mouseout', Sun.throttle(update, 5))
   !i && buckets.on('click', (e) => {
-    locked = !locked,
+    buckets.toggleClass('locked', locked = !locked),
     update(e)
   })
 }

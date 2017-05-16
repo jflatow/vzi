@@ -59,6 +59,7 @@ async function gatherOpts(args) {
     format: await determineFormat(args),
     output: await determineOutput(args),
     pipe: await determinePipe(args),
+    separator: args.separator,
     http_agent: new http.Agent({keepAlive: true}),
     project_root: path.join(__dirname, '..'),
     new_page: args['page-token'] ? false : true,
