@@ -4,7 +4,7 @@
   "author": "Jared Flatow",
   "license": "MPL-2.0",
   "repository" : "jflatow/vzi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "bin": "bin/vzi",
   "dependencies": {
     "browserify": "latest",
