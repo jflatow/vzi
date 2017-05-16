@@ -13,7 +13,7 @@ Pipes give us the ability to compose complex functions on the fly, tailored to t
 For this purpose, the shell is the highest bandwidth input mechanism that humans have yet invented to instruct machines.
 
 And yet, we have no good way of piping data into that other highly dynamic environment in which we spend a great deal of time: the browser.
-The goal of *vzi* is bridge that gap, so we can include web-based compositions as part of our cherished data pipelines.
+The goal of *vzi* is to bridge that gap, so we can include web-based compositions as part of our cherished data pipelines.
 
 Looking at data in the terminal, we often have no good way to interpret it, yet with some slight transformation, our eyes are able to comprehend deep patterns.
 Given a source of data that contains latitude and longitude coordinates, a natural way to explore this data is using a map.
@@ -161,3 +161,12 @@ The best examples are the builtin modules, listed here in order of complexity:
  - [hist](www/hist.js)
  - [bucket](www/bucket.js)
  - [scatter](www/scatter.js)
+
+## Examples
+
+Here are some other quick examples you can try, assuming you've cloned the repository:
+
+```
+bin/gen-yxz | vzi -m scatter -d y='log($[0])' -d ys='exp(_)'
+bin/gen-line | vzi -m hist -d v=1 -d k='second((new Date - 0) / 1000, 3)'
+```

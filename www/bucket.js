@@ -111,11 +111,12 @@ function newBucket(point) {
 }
 
 function addToBucket(bucket, {k, v, c}) {
-  let dp = dataPoint(bucket.node)
-  let v_ = VF.add(dp.v, v)
+  let bn = bucket.node, bs;
+  let v_ = VF.add(dataPoint(bn).v, v)
   let b_ = bucket.attrs({'data-v': v_})
+  let dp = dataPoint(bn)
   let val = VF.val(v_)
-  for (let bn = b_.node, bs; (bs = SF.siblingAfter(bn)) && !SF.comesBefore(dp, dataPoint(bs)); )
+  while ((bs = SF.siblingAfter(bn)) && !SF.comesBefore(dp, dataPoint(bs)))
     SF.insertBefore(bs, bn)
   if (val > newMaxVal) {
     // one way or another, this is the new max
