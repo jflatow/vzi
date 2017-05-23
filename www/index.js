@@ -35,7 +35,7 @@ function report(always = true) {
   }
 }
 
-function handle_init(conf) {
+function handle_init(conf, seed) {
   const {pipe} = Conf = conf;
   let doc = Report.contentDocument, win = Report.contentWindow;
   let script = doc.createElement('script')
@@ -44,9 +44,10 @@ function handle_init(conf) {
 /* This API can/should be overridden by user-defined functions.
  * It is often enough to simply overwrite \`render_event\`.
  */
-window.render_begin = (doc, init) => {}
+window.render_begin = (doc, init, seed) => {}
 window.render_event = (event, doc, i) => doc.body.innerText = event;
-window.onload = () => render_begin(document, 0)
+window.export_state = (doc) => doc.body.outerHTML;
+window.onload = () => render_begin(document, 0, ${JSON.stringify(seed)})
 Conf = ${JSON.stringify(Conf)};
 `
   try {
@@ -56,9 +57,9 @@ Conf = ${JSON.stringify(Conf)};
     if (doc.getElementById('pipe-js'))
       doc.body.removeChild(doc.getElementById('pipe-js'))
     doc.body.appendChild(script)
-    win.render_begin(doc, State.init++)
+    win.render_begin(doc, State.init++, seed)
   } catch (e) {
-    ErrorReport.innerText = `Error evaluating ${mode}: ${e}`
+    ErrorReport.innerText = `Error evaluating pipe: ${e}`
     console.error(e)
   }
   return report()
@@ -122,7 +123,8 @@ function handle_done() {
           // other messages sent when they occur, but init can be missed
           // in general the handle_init function should be idempotent
           // since e.g. when reusing a page, it will be called again
-          conn.send(`handle_init(${JSON.stringify(Conf)})`)
+          let seed = Report.contentWindow.export_state(Report.contentDocument)
+          conn.send(`handle_init(${JSON.stringify(Conf)}, ${JSON.stringify(seed)})`)
         })
         conn.on('close', () => {
           let i = State.conns.indexOf(conn)

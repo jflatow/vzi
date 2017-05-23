@@ -77,7 +77,11 @@ async function defineParams(args) {
   for (let def of defs) {
     let [name, val] = def.split('=')
     let num = parseFloat(val)
-    define[name] = isNaN(num) ? val : num;
+    let mnum = isNaN(num) ? val : num;
+    if (name in define)
+      define[name] = array(define[name]).concat(mnum)
+    else
+      define[name] = mnum;
   }
   return define;
 }
