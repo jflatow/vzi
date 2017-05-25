@@ -48,6 +48,13 @@ function platformOpts() {
   }
 }
 
+function bufferStream(buf) {
+  const s = new stream.Readable()
+  s.push(buf)
+  s.push(null)
+  return s;
+}
+
 async function gatherOpts(args) {
   let opts = platformOpts()
   return Object.assign(opts, {
@@ -107,14 +114,18 @@ async function determinePipe(args) {
 }
 
 async function readSource(source) {
-  const file = new stream.Readable()
-  file.push(source)
-  file.push(null)
-  return bundle(new browserify({debug: true, basedir: __dirname}).add(file))
+  return bundle(new browserify({debug: true, basedir: __dirname}).add(bufferStream(source)))
 }
 
 async function readSourceFile(filename) {
   return bundle(new browserify({debug: true}).add(filename))
+}
+
+async function writeToStream(out, buf) {
+  return new Promise(
+    (okay, fail) => {
+      bufferStream(buf).on('end', okay).on('error', fail).pipe(out)
+    })
 }
 
 async function bundle(bundler) {
@@ -189,18 +200,16 @@ class Client {
             return fail(`Page has no available debugging socket`)
 
           this.socket = new WebSocket(url)
-          this.socket.onopen = () => {
-            const bootstrap = () => {
-              okay(this.eval(`handle_init(${conf})`, (r) => {
-                this.report(r, false)
-              }))
+          this.socket.onopen = async () => {
+            const bootstrap = async () => {
+              const res = await this.eval(`handle_init(${conf})`)
+              await this.report(res, false)
             }
             if (opts.new_page) {
               this.send({method: 'Page.enable'})
-              this.when({method: 'Page.loadEventFired'}, bootstrap)
-            } else { // assume its already loaded
-              bootstrap()
+              await this.when({method: 'Page.loadEventFired'})
             }
+            okay(await bootstrap())
           }
           this.socket.onerror = (e) => console.error('socket error', e)
           this.socket.onmessage = (m) => this.recv(m)
@@ -270,41 +279,44 @@ class Client {
     return this.page = null;
   }
 
-  report(result, final) {
+  async report(result, final) {
     const opts = this.opts;
     if (opts.output == null)
       return;
-    if (typeof opts.output == 'string')
+    if (typeof opts.output == 'string') {
       fs.writeFileSync(opts.output, result.value)
-    else if (final)
-      opts.output.write(result.value)
+    } else if (final) {
+      await writeToStream(opts.output, result.value)
+    }
   }
 
-  data(data) {
+  async data(data) {
     const enc = data.toString('base64') // NB: ugh
-    this.eval(`handle_data("${enc}")`, (r) => {
-      this.report(r, false)
-    })
+    const res = await this.eval(`handle_data("${enc}")`)
+    await this.report(res, false)
   }
 
-  done(then) {
-    this.eval('handle_done()', (r) => {
-      this.report(r, true)
-      this.destroy(then)
-    })
+  async done() {
+    const res = await this.eval('handle_done()')
+    await this.report(res, true)
+    await this.destroy()
   }
 
-  when(event, fun) {
-    this.pending.push([event, fun])
+  async when(event) {
+    return new Promise(
+      (okay, fail) => {
+        this.pending.push([event, okay])
+      })
   }
 
-  eval(expression, fun) {
+  async eval(expression) {
     let tagged = this.send({
       method: 'Runtime.evaluate',
       params: {expression: expression},
       returnByValue: true
     })
-    this.when({id: tagged.id}, (o) => fun(o.result.result))
+    let o = await this.when({id: tagged.id})
+    return o.result.result;
   }
 
   send(obj) {
@@ -327,14 +339,17 @@ class Client {
     })
   }
 
-  destroy(then) {
-    if (this.opts.keep_alive)
-      return then && then()
-    if (this.pending.length)
-      return setTimeout(() => this.destroy(), 100)
-    this.browser && this.browser.kill()
-    this.browser = null;
-    return then && then()
+  async destroy() {
+    return new Promise(
+      (okay, fail) => {
+        if (this.opts.keep_alive)
+          return okay()
+        if (this.pending.length)
+          return setTimeout(() => this.destroy(), 100)
+        this.browser && this.browser.kill()
+        this.browser = null;
+        return okay()
+      })
   }
 }
 
@@ -377,18 +392,29 @@ async function main() {
     let interrupts = 0
 
     try {
+      const pipe = async (data) => {
+        try {
+          await client.data(data)
+        } catch (e) {
+          await client.destroy()
+          exit(`(:) ${e}`, 1)
+        }
+      }
+      const close = async () => {
+        await client.done()
+        process.exit()
+      }
       await client.init()
-      process.stdin.on('data', (d) => client.data(d))
-      process.stdin.on('close', () => {
-        client.done(() => process.exit())
-      })
+      process.stdin.on('data', pipe)
+      process.stdin.on('close', close)
+      process.stdin.on('end', close)
       process.on('SIGINT', () => {
         if (++interrupts > 2)
           process.exit()
         process.stdin.destroy()
       })
     } catch (e) {
-      client.destroy()
+      await client.destroy()
       exit(`(*) ${e}`, 1)
     }
 

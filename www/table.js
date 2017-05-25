@@ -57,46 +57,46 @@ render_begin = (doc, init, seed) => {
   data = tbody.each('tr', (node, acc) => {
     return acc.push(Array.prototype.map.call(node.childNodes, (d) => d.innerText)), acc;
   }, [])
+
+  let click = (e) => {
+    let tc = e.target;
+    let f = formulate(tc.getAttribute('data-formula'))
+    let g = (x) => vzi.tryNum(f(x))
+    let D = !tc.getAttribute('data-ascending')
+    if (D) {
+      data.sort((a, b) => cmp(g(a), g(b)))
+      tc.setAttribute('data-ascending', true)
+    } else {
+      data.sort((a, b) => cmp(g(b), g(a)))
+      tc.removeAttribute('data-ascending')
+    }
+    data.map((ev, i) => {
+      let j = 0, tr = tbody.node.childNodes[i]
+      for (let f of ev)
+        tr.childNodes[j++].innerText = f;
+    })
+  }
+  thead.on('click', click)
 }
 
 render_event = (event, doc, i) => {
   if (header && i == 0) {
     let row = thead.child('tr')
-    let click = (e) => {
-      let tc = e.target;
-      let f = formulate(tc.getAttribute('data-formula'))
-      let g = (x) => vzi.tryNum(f(x))
-      let D = !tc.getAttribute('data-ascending')
-      if (D) {
-        data.sort((a, b) => cmp(g(a), g(b)))
-        tc.setAttribute('data-ascending', true)
-      } else {
-        data.sort((a, b) => cmp(g(b), g(a)))
-        tc.removeAttribute('data-ascending')
-      }
-      data.map((ev, i) => {
-        let j = 0, tr = tbody.node.childNodes[i]
-        for (let f of ev)
-          tr.childNodes[j++].innerText = f;
-        for (let c of cols)
-          tr.childNodes[j++].innerText = c(ev)
-      })
-    }
     let i = 0;
     for (let f of event)
       row.child('td').txt(f).attrs({
         'data-formula': `\$[${i++}]`
-      }).on('click', click)
+      })
     for (let c of defs)
       row.child('td').txt(c.replace(/\$\[(\d+)\]/g, (_, k) => event[k])).attrs({
         'data-formula': c
-      }).on('click', click)
+      })
   } else {
     let row = tbody.child('tr')
+    for (let c of cols)
+      event.push(c(event))
     for (let f of event)
       row.child('td').txt(f)
-    for (let c of cols)
-      row.child('td').txt(c(event))
     data.push(event)
   }
 }
