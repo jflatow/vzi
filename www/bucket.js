@@ -2,7 +2,8 @@ const vzi = require('../lib/vzi')
 const Sky = require('sky')
 const Sun = require('sky/sun')
 const Orb = require('sky/ext/orb')
-const U = Sky.util, dfn = U.dfn;
+const {dfn} = Sky.util;
+const {def} = Sun;
 const {
   k: kp,
   v: vp,
@@ -14,9 +15,9 @@ const {
   orderBy = null
 } = Conf.define;
 
-let key = vzi.indexOrEvalFun(kp, () => ~~((new Date - 0) / period), false)
+let key = vzi.indexOrEvalFun(kp, () => ~~((new Date - 0) / period), 'try')
 let val = vzi.indexOrEvalFun(vp, () => 1)
-let cVal = (ev, i) => ev[cp] || key(ev, i) || '-'
+let cVal = (ev, i) => def(ev[cp], def(key(ev, i), '-'))
 let xPerY = ((scale) => {
   if (scale)
     return (x, y) => scale(x) / scale(y)
@@ -61,7 +62,7 @@ let SF, setDefaultSort = (defaultOrderBy = 'key') => {
     return SF = {
       roundIndex: Math.floor,
       lessThan: (l, h) => l < h,
-      comesBefore: ({k, c}, {k: k_, c: c_}) => [k, c] < [k_, c_],
+      comesBefore: ({k, c}, {k: k_, c: c_}) => k < k_ || (k == k_ && c < c_),
       siblingAfter: (n) => n.nextSibling,
       insertBefore: (a, b) => b.parentNode.insertBefore(a, b)
     }
@@ -74,7 +75,7 @@ let SF, setDefaultSort = (defaultOrderBy = 'key') => {
     return SF = {
       roundIndex: Math.floor,
       lessThan: (l, h) => l < h,
-      comesBefore: ({k, c}, {k: k_, c: c_}) => [c, k] < [c_, k_],
+      comesBefore: ({k, c}, {k: k_, c: c_}) => c < c_ || (c == c_ && k < k_),
       siblingAfter: (n) => n.nextSibling,
       insertBefore: (a, b) => b.parentNode.insertBefore(a, b)
     }
@@ -146,9 +147,9 @@ function addToBucket(bucket, {k, v, c}) {
 
 function dataPoint(node) {
   return {
-    k: node.getAttribute('data-k'),
+    k: vzi.tryNum(node.getAttribute('data-k')),
     v: VF.parse(node.getAttribute('data-v')),
-    c: node.getAttribute('data-c')
+    c: vzi.tryNum(node.getAttribute('data-c'))
   }
 }
 
@@ -265,7 +266,7 @@ render_begin = (doc, i) => {
     if (e.type == 'mouseout' || !(k || v)) {
       kLabel.txt(`# buckets: ${buckets.node.children.length}`)
       vLabel.txt(`max value: ${newMaxVal}`)
-      cLabel.txt(`occurs in: ${dataPoint(maxBucket.node).k}`)
+      cLabel.txt(`occurs in: ${maxBucket && dataPoint(maxBucket.node).k}`)
       c && colorLabels.$(`.color[data-name="${btoa(c)}"] .label`)
         .style({'background-color': 'initial'})
       if (!locked) {

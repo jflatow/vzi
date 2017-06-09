@@ -1,7 +1,7 @@
 const vzi = require('../lib/vzi')
 const Sky = require('sky')
 const Sun = require('sky/sun')
-const U = Sky.util, {dfn} = U;
+const U = Sky.util, {dfn, fnt} = U;
 const P = Sky.path, {up} = Sun;
 const {
   t: tp,
@@ -58,6 +58,7 @@ class Summarizer {
         // first go through the existing bounds (in order)
         // alloc or dealloc space as needed by new group
         let b = groups.get(g) || {size: 0}
+        carry = dfn(b.offset, carry)
         bs.push(up(b, {top: carry, bottom: carry + b.size}))
         carry += b.size;
       }
@@ -66,6 +67,7 @@ class Summarizer {
         // backfill bounds to 0 for as many as they missed
         if (!bounds.has(g)) {
           let bs = (new Array(j)).fill({top: 0, bottom: 0})
+          carry = dfn(b.offset, carry)
           bs.push(up(b, {top: carry, bottom: carry + b.size}))
           bounds.set(g, bs)
           carry += b.size;
@@ -170,7 +172,7 @@ class RangeSummarizer extends Summarizer {
       let L = this.limit, per = this.total[t] / L;
       let vs = this.cache[t]
       if (vs.length <= L) {
-        yield [t, new Map(vs.map(([v, count], i) => [i, {time: t, size: 1, count, desc: `Value: ${v}`}]))]
+        yield [t, new Map(vs.map(([v, count], i) => [i, {time: t, offset: fnt(v), size: 1, count, desc: `Value: ${v}`}]))]
       } else {
         let quantiles = [], cumsum = 0, Q, q;
         for (let i = 0; i < L; i++)
@@ -184,7 +186,7 @@ class RangeSummarizer extends Summarizer {
           q.count += count;
         }
         yield [t, new Map(quantiles.map((q, i) => {
-          return [i, up(q, {size: 1 + diff(q.max, q.min), desc: `Range: ${q.min} - ${q.max}`})]
+          return [i, up(q, {offset: fnt(q.min), size: diff(q.max, q.min), desc: `Range: ${q.min} - ${q.max}`})]
         }))]
       }
     }
@@ -204,6 +206,10 @@ render_begin = (doc, i) => {
         'margin': '2px 1ex',
         'font-family': 'monospace',
         'font-size': 'small'
+      },
+
+      '#graph': {
+        'margin-left': '1em'
       },
 
       '#grp': {

@@ -60,7 +60,7 @@ function resize(x, y) {
   // find vbox containing dbox + 10% that has desired aspect ratio
   let vbox_ = vbox.copy()
   vbox = dbox.pad(dbox.h / 10 || 1, dbox.w / 10 || 1).closure(cbox)
-  console.log(`resizing view to ${vbox.w} x ${vbox.h}`)
+  console.log(`resizing view to ${vbox.w} x ${vbox.h} at ${vbox.x}, ${vbox.y}`)
 
   // if vbox_ were in cbox instead of vbox, where exactly would it be?
   let cbox_ = vbox_.analog(cbox, vbox)
