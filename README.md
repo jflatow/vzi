@@ -2,7 +2,7 @@
 
 *vzi* is the spiritual successor to [viz <img src="http://www.flatown.com/img/viz.png" width="24" height="24" align="top">](https://github.com/jflatow/viz)
 
-*vzi* command line is implemented using [node.js](https://nodejs.org), and rendering requires [Chrome](https://www.chromium.org).
+*vzi* command line is (now) implemented using [deno](https://deno.com/), and rendering requires the [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/1-3/Page/).
 *vzi* has only been tested for Mac, although it should trivially work on Linux (just tell it the path to the Chrome binary).
 
 ## About
@@ -55,17 +55,17 @@ However, it is easy to write other [pipe](#pipes) modules, and doing so can in f
 First, install [Chrome Canary](https://www.google.com/chrome/browser/canary.html).
 It's not strictly required, but its the best and easiest way to use *vzi* currently.
 
-You can install the command line tool globally from [npm](https://npmjs.org) using:
+You can install the command line tool globally with [deno](https://deno.land/manual/tools/script_installer) using:
 
 ```
-npm install -g vzi
+deno install -A -f https://raw.githubusercontent.com/jflatow/vzi/master/bin/vzi
 ```
 
 A better method for developers is to clone the repository and install it:
 
 ```
 $ git clone https://github.com/jflatow/vzi.git
-$ cd vzi && npm link
+$ cd vzi && make install
 ```
 
 Quickly test it works:
@@ -78,7 +78,7 @@ It should open a window in the browser.
 If not, you may need to use the `-b` option to tell *vzi* where the browser executable path is.
 For a complete list of options: `vzi -h`.
 
-If Chrome is already launched without the remote debugging port open, you'll get an error when *vzi* requests a new page (i.e. `/json/new`).
+If Canary is already launched without the remote debugging port open, you *may* get an error when *vzi* requests a new page (i.e. `/json/new`).
 In that case, just quit Chrome and let *vzi* launch it the way it wants, or re-open it yourself with the port open.
 The default port used by *vzi* is `9222`, but you can specify it using the `-p` option.
 
@@ -146,6 +146,17 @@ This requires a browser capable of being run headlessly (NB: *Chrome Canary* at 
 $ cat events | vzi pipe.js -H
 ```
 
+Running headlessly is considered a rather advanced mode of operation, though it works quite well.
+In general, there are 2 modes of operation for the browser: *attached* and *detached*.
+When you run detached (default if not headless), things are a bit easier and smoother to get started.
+Especially when you run without headless, since you can see exactly what's happening.
+In the attached mode, interrupts end up killing the browser, so unless you send a proper EOF you won't get an output report.
+This is still fine without headless, since you still see the output in the browser as its generated.
+However, when you run in headless mode attached, you generally don't want to pipe an infinite stream.
+This is because without an EOF you won't be able to kill the process gracefully, so you will neither see the output nor get a report.
+
+Some of the available options may be confusing without an understanding of how the tool works.
+The overall setup is complex yet straightforward.
 Once the DevTools implementation is known, a page is opened and the events are sent via a layer on top of the Chrome debugging protocol.
 Within this context, the user-defined pipe handler functions are executed.
 
@@ -160,11 +171,13 @@ The pipe handles the visualization logic for the *Unix* pipe that it runs inside
 The pipe interface is currently defined in [index.js](www/index.js).
 The best examples are the builtin modules, listed here in order of complexity:
 
- - [echo](www/echo.js)
- - [rate](www/rate.js)
- - [hist](www/hist.js)
- - [bucket](www/bucket.js)
- - [scatter](www/scatter.js)
+ - [echo](lib/www/echo.ts)
+ - [rate](lib/www/rate.ts)
+ - [table](lib/www/table.ts)
+ - [hist](lib/www/hist.ts)
+ - [bucket](lib/www/bucket.ts)
+ - [scatter](lib/www/scatter.ts)
+ - [sankey](lib/www/sankey.ts)
 
 ## Examples
 

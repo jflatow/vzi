@@ -1,10 +1,14 @@
-#!/usr/bin/env node
+#!/usr/bin/env deno run
 
-let Y = 100, X = 100, Z = 4, T = 1000;
+// Copyright 2017-present Jared Flatow
+// SPDX-License-Identifier: AGPL-3.0-only
+
+let K = 100, Y = 100, X = 100, Z = 4, T = 1000;
 
 const randint = (sup) => ~~(Math.random() * sup)
 const dataTimer = setInterval(() => {
-  process.stdout.write(`${randint(Y)} ${randint(X)} ${randint(Z)}\n`)
+  for (let k = 0; k < K; k++)
+    console.log(`${randint(Y)} ${randint(X)} ${randint(Z)}`)
 }, 1)
 const distTimer = setInterval(() => {
   Y += (Math.random() - .5)

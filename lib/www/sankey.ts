@@ -1,8 +1,12 @@
-const vzi = require('../lib/vzi')
-const Sky = require('sky')
-const Sun = require('sky/sun')
-const U = Sky.util, {dfn, fnt} = U;
-const P = Sky.path, {up} = Sun;
+// Copyright 2017-present Jared Flatow
+// SPDX-License-Identifier: AGPL-3.0-only
+
+// @ts-nocheck
+import * as vzi from '../vzi.ts';
+
+const { Sky, Sun } = vzi;
+const { P, dfn, fnt, up } = Sky;
+const { Uni } = Sun;
 const {
   t: tp,
   range: rp,
@@ -13,7 +17,7 @@ const {
 
 const Prefs = {
   time: vzi.indexOrEvalFun(tp, () => ~~((new Date - 0) / 1000), false),
-  range: vzi.indexOrEvalFun(rp, (ev, i) => ev[0], 'try'),
+  range: vzi.indexOrEvalFun(rp, (ev, i) => ev[0]),
   label: vzi.indexOrEvalFun(lp, null, false),
   limit: limit
 }
@@ -181,8 +185,8 @@ class RangeSummarizer extends Summarizer {
           cumsum += count;
           Q = ~~((cumsum - 1) / per)
           q = quantiles[Q]
-          q.min = Sun.min(q.min, v)
-          q.max = Sun.max(q.max, v)
+          q.min = Uni.min(q.min, v)
+          q.max = Uni.max(q.max, v)
           q.count += count;
         }
         yield [t, new Map(quantiles.map((q, i) => {

@@ -1,10 +1,11 @@
-.PHONY: build clean install
+.PHONY: check test install
 
-build:
-	npm -s install
+check:
+	deno check bin/vzi
+	deno check lib/vzi.ts lib/www/*.ts
 
-clean:
-	rm -rf node_modules
+test:
+	deno test
 
 install:
-	npm link
+	deno install -A -f bin/vzi

@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!--
+        Copyright 2017-present Jared Flatow
+        SPDX-License-Identifier: AGPL-3.0-only
+      -->
     <title>vzi</title>
     <style>
       html, body, main, footer {
@@ -10,19 +14,8 @@
 
       #report {
         width: 100%;
-        height: calc(100vh - 1em);
+        height: 100vh;
         border: 0px;
-      }
-
-      footer {
-        width: 100%;
-        font-size: xx-small;
-        text-align: center;
-      }
-
-      footer a {
-        padding: 1ex;
-        text-decoration: none;
       }
     </style>
   </head>
@@ -32,8 +25,5 @@
       <iframe id="report" srcdoc="<!DOCTYPE html>"></iframe>
       <script src="index.js"></script>
     </main>
-    <footer>
-      <a id="share" href="" target="_blank">share</a>
-    </footer>
   </body>
 </html>

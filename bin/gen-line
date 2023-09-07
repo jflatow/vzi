@@ -1,7 +1,10 @@
-#!/usr/bin/env node
+#!/usr/bin/env deno run
+
+// Copyright 2017-present Jared Flatow
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 let i = 0;
 const dataTimer = setInterval(() => {
-  let c = 20 * i++, r = 10;
-  process.stdout.write(`${c} ${c} ${r}\n`)
+  const c = 20 * i++, r = 10;
+  console.log(`${c} ${c} ${r}`)
 }, 80)
