@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import { iterateReader } from 'https://deno.land/std/streams/iterate_reader.ts';
-import { writeAll, writeAllSync } from 'https://deno.land/std/streams/write_all.ts';
+import { writeAll, writeAllSync } from 'https://deno.land/std@0.172.0/streams/write_all.ts';
 import { bundle } from 'https://deno.land/x/emit/mod.ts';
 
 export type BundleType = 'classic' | 'module';
